@@ -1,10 +1,14 @@
 import './App.css';
 import React, { useState } from 'react'
-import { Transaction, TransactionWitnessSet, Address } from '@emurgo/cardano-serialization-lib-asmjs'
-import {Buffer} from 'buffer/'
+import { Transaction, TransactionWitnessSet, Address, TransactionUnspentOutput } from '@emurgo/cardano-serialization-lib-asmjs'
+import { Buffer } from 'buffer/'
 
 const hexToBytes = (hex) => Buffer.from(hex, "hex");
-    
+const bytesToHex = (bytes) => Buffer.from(bytes).toString("hex");
+const utxoFromHex = (hex) => TransactionUnspentOutput.from_bytes(hexToBytes(hex));
+const getTxId  = (utxo) => bytesToHex(utxo.input().transaction_id().to_bytes());
+const getTxIndex = (utxo) => utxo.input().index();
+
 const connect = (setState) => {
   console.log('cardano object', window.cardano)
   window.cardano.enable()
@@ -17,7 +21,7 @@ const connect = (setState) => {
     }).then(addrs => {
       // addrs is an array-like object containing CBOR encoded addresses
       // might decode using https://github.com/kriszyp/cbor-x 
-      console.log ("addresses returned", addrs)
+      console.log("addresses returned", addrs)
       setState({ address: addrs[0] })
       console.log("done")
       return addrs[0]
@@ -26,29 +30,36 @@ const connect = (setState) => {
       const fixedAddr = Address.from_bytes(hexToBytes(addr), "hex").to_bech32()
       console.log(fixedAddr)
       const data = JSON.stringify(
-        {caID: {
-          contents: {
-            ownAddress: fixedAddr
+        {
+          caID: {
+            contents: {
+              ownAddress: fixedAddr
             },
-          tag: 'Roundtrip'
+            tag: 'Roundtrip'
           }
         }
       )
       console.log("Activation JSON: ", data)
       return fetch("http://localhost:9080/api/contract/activate",
-                  { method: "POST" , 
-                    headers: {"Content-type" : "application/json"},
-                    mode: 'no-cors',
-                    body: data
-                  })
+        {
+          method: "POST",
+          headers: { "Content-type": "application/json" },
+          // mode: 'cors',
+          body: data
+        })
     })
-    .then(res => console.log(res))
+    .then(response => response.json())
+    .then(data => {
+      console.log("Data: ", data)
+      setState({ contractInstance: data.unContractInstanceId })
+    })
     .catch(err => console.log("Error: ", err))
-    
 }
 
+
+
 const submit = (tx, wits) => {
-  const txn = Transaction.from_bytes(Buffer.from(tx,'hex')) 
+  const txn = Transaction.from_bytes(Buffer.from(tx, 'hex'))
   // console.log('Tx is valid: ', txn.is_valid())
   const witnessSet = TransactionWitnessSet.from_bytes(Buffer.from(wits, 'hex'))
   const signedTx = Transaction.new(txn.body(), witnessSet)
@@ -64,8 +75,46 @@ const sign = (tx) => {
     .catch(err => console.log("error: ", err))
 }
 
+const debg = () => {
+  fetch('http://localhost:9080/api/contract/definitions')
+    .then(response => response.json())
+    .then(data => console.log(data));
+}
+
+const callContract = (inst) => {
+  window.cardano.getCollateral()
+    .then(utxos => {
+      const cUtxo = utxoFromHex(utxos[0])
+      // fixme
+      const hardcodedAddr = "addr_test1qz3apv2ekuctf55fqa5psgaxeg24eeg0sc2wqqe9m259h5w6sk0nka6kca9ar7fwgxfg5khh4tkakp7cntexcat5x74q48ns3a"
+      // fixme
+      const hardcodedAmt = 7000000 
+
+      const data = {
+        lovelaceAmount: hardcodedAmt,
+        receiverAddress: hardcodedAddr,
+        collateralRef: {
+            txOutRefId: {
+                getTxId: getTxId(cUtxo)
+                },
+            txOutRefIdx: getTxIndex(cUtxo)
+        }
+      }
+      console.log("Endpoint req: ", data)
+      fetch(`http://localhost:9080/api/contract/instance/${inst}/endpoint/call-demo`,
+        {
+          method: "POST",
+          headers: { "Content-type": "application/json" },
+          body: JSON.stringify(data)
+        }
+      )
+    }
+    ).then(res => console.log(res))
+    .catch(err => console.log(err))
+}
+
 const App = () => {
-  const [state, setState] = useState({ address: "" });
+  const [state, setState] = useState({ address: "", contractInstance: "" });
   console.log("state", state)
   return (
     <div className="App">
@@ -74,6 +123,12 @@ const App = () => {
       </button>
       <button onClick={() => sign("84a500818258200aae5c2b619ba6ddba8924e3ce2e178e2b788e10ee291781c996f05de4a39f7b000d81825820513aefa8cce5435985cef0795a96cbbd3937fce77ad1ed715ce6df77a15fe27f000182825839005feb72668e5a4effd3b34088aa56e7d558f75afe4798b8364a739673700e4b6993cbc5e612f8770aa531243b3d888a81c0a46de5fa5f6a701a3a3944c382581d60a3d0b159b730b4d28907681823a6ca155ce50f8614e00325daa85bd11a006acfc0021a001e84800e80a0f5f6")}>
         Sign & Submit
+      </button>
+      <button onClick={() => debg(setState)}>
+        Debug
+      </button>
+      <button onClick={() => callContract(state.contractInstance)}>
+        Call endpoint
       </button>
       <div>Address: {state.address} </div>
     </div>
