@@ -1,8 +1,10 @@
 import './App.css';
 import React, { useState } from 'react'
-import { Transaction, TransactionWitnessSet } from '@emurgo/cardano-serialization-lib-asmjs'
+import { Transaction, TransactionWitnessSet, Address } from '@emurgo/cardano-serialization-lib-asmjs'
+import {Buffer} from 'buffer/'
 
-
+const hexToBytes = (hex) => Buffer.from(hex, "hex");
+    
 const connect = (setState) => {
   console.log('cardano object', window.cardano)
   window.cardano.enable()
@@ -18,19 +20,39 @@ const connect = (setState) => {
       console.log ("addresses returned", addrs)
       setState({ address: addrs[0] })
       console.log("done")
+      return addrs[0]
     })
-    .catch(err => console.log("connect error", err))
+    .then(addr => {
+      const fixedAddr = Address.from_bytes(hexToBytes(addr), "hex").to_bech32()
+      console.log(fixedAddr)
+      const data = JSON.stringify(
+        {caID: {
+          contents: {
+            ownAddress: fixedAddr
+            },
+          tag: 'Roundtrip'
+          }
+        }
+      )
+      console.log("Activation JSON: ", data)
+      return fetch("http://localhost:9080/api/contract/activate",
+                  { method: "POST" , 
+                    headers: {"Content-type" : "application/json"},
+                    mode: 'no-cors',
+                    body: data
+                  })
+    })
+    .then(res => console.log(res))
+    .catch(err => console.log("Error: ", err))
+    
 }
 
 const submit = (tx, wits) => {
   const txn = Transaction.from_bytes(Buffer.from(tx,'hex')) 
-  console.log('Tx is valid: ', txn.is_valid())
+  // console.log('Tx is valid: ', txn.is_valid())
   const witnessSet = TransactionWitnessSet.from_bytes(Buffer.from(wits, 'hex'))
   const signedTx = Transaction.new(txn.body(), witnessSet)
-  console.log("Submitting")
-  const res = window.cardano.submitTx(Buffer.from(signedTx.to_bytes()).toString('hex'))
-  console.log("Submit res: ", res)
-
+  window.cardano.submitTx(Buffer.from(signedTx.to_bytes()).toString('hex'))
 }
 
 const sign = (tx) => {
@@ -38,6 +60,7 @@ const sign = (tx) => {
   window.cardano.signTx(tx)
     // .then(result => console.log("Success"))
     .then(wits => submit(tx, wits))
+    .then(submitResult => console.log("Submitted: ", submitResult))
     .catch(err => console.log("error: ", err))
 }
 
