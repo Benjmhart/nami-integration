@@ -27,13 +27,13 @@ const connect = (setState) => {
       return addrs[0]
     })
     .then(addr => {
-      const fixedAddr = Address.from_bytes(hexToBytes(addr), "hex").to_bech32()
-      console.log(fixedAddr)
+      const sendingAddress = Address.from_bytes(hexToBytes(addr), "hex").to_bech32()
+      console.log(sendingAddress)
       const data = JSON.stringify(
         {
           caID: {
             contents: {
-              ownAddress: fixedAddr
+              ownAddress: sendingAddress
             },
             tag: 'Roundtrip'
           }
