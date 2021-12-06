@@ -57,12 +57,10 @@ const connect = (setState) => {
 }
 
 
-
-
-
 const callContract = (inst) => {
   window.cardano.getCollateral()
     .then(utxos => {
+      console.log("Collateral: ", utxos)
       const cUtxo = utxoFromHex(utxos[0])
       // fixme
       const hardcodedAddr = "addr_test1qz3apv2ekuctf55fqa5psgaxeg24eeg0sc2wqqe9m259h5w6sk0nka6kca9ar7fwgxfg5khh4tkakp7cntexcat5x74q48ns3a"
@@ -143,9 +141,14 @@ const signSubmit = (tx) => {
 
 
 const debg = () => {
+  window.cardano.getUtxos()
+    .then(walletUtxos => console.log("Wallet utxos: ", getTxId(utxoFromHex(walletUtxos[0]))))
+    .catch(err => console.log("Error getting wallet utxos: ", err))
+
   fetch('http://localhost:9080/api/contract/definitions')
     .then(response => response.json())
-    .then(data => console.log(data));
+    .then(data => console.log(data))
+    .catch(err => console.log("Error getting definitions: ", err));
 }
 
 
