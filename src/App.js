@@ -6,8 +6,18 @@ import { Buffer } from 'buffer/'
 const hexToBytes = (hex) => Buffer.from(hex, "hex");
 const bytesToHex = (bytes) => Buffer.from(bytes).toString("hex");
 const utxoFromHex = (hex) => TransactionUnspentOutput.from_bytes(hexToBytes(hex));
-const getTxId  = (utxo) => bytesToHex(utxo.input().transaction_id().to_bytes());
+const getTxId = (utxo) => bytesToHex(utxo.input().transaction_id().to_bytes());
 const getTxIndex = (utxo) => utxo.input().index();
+
+const hexUtxoToOutRef = (hex) => {
+  const utxo = utxoFromHex(hex)
+  return {
+    txOutRefId: {
+      getTxId: getTxId(utxo)
+    },
+    txOutRefIdx: getTxIndex(utxo)
+  }
+}
 
 const connect = (setState) => {
   console.log('cardano object', window.cardano)
@@ -61,32 +71,31 @@ const callContract = (inst) => {
   window.cardano.getCollateral()
     .then(utxos => {
       console.log("Collateral: ", utxos)
-      const cUtxo = utxoFromHex(utxos[0])
       // fixme
       const hardcodedAddr = "addr_test1qz3apv2ekuctf55fqa5psgaxeg24eeg0sc2wqqe9m259h5w6sk0nka6kca9ar7fwgxfg5khh4tkakp7cntexcat5x74q48ns3a"
       // fixme
-      const hardcodedAmt = 7000000 
+      const hardcodedAmt = 7000000
 
-      const data = {
-        lovelaceAmount: hardcodedAmt,
-        receiverAddress: hardcodedAddr,
-        collateralRef: {
-            txOutRefId: {
-                getTxId: getTxId(cUtxo)
-                },
-            txOutRefIdx: getTxIndex(cUtxo)
-        }
-      }
-      console.log("Endpoint req: ", data)
-      fetch(`http://localhost:9080/api/contract/instance/${inst}/endpoint/call-demo`,
-        {
-          method: "POST",
-          headers: { "Content-type": "application/json" },
-          body: JSON.stringify(data)
-        }
-      ).then(res => console.log("Endpoint call res: ", res))
-      .then(() => getAndSingSubmit(inst))
-      .catch(err => console.log(err))
+      window.cardano.getUtxos()
+        .then(walletUtxos => {
+          const data = {
+            lovelaceAmount: hardcodedAmt,
+            receiverAddress: hardcodedAddr,
+            collateralRef: hexUtxoToOutRef(utxos[0]),
+            spendableUtxos: walletUtxos.map(utxo => hexUtxoToOutRef(utxo))
+          }
+          console.log("Endpoint req: ", data)
+          fetch(`http://localhost:9080/api/contract/instance/${inst}/endpoint/call-demo`,
+            {
+              method: "POST",
+              headers: { "Content-type": "application/json" },
+              body: JSON.stringify(data)
+            }
+          ).then(res => console.log("Endpoint call res: ", res))
+            .then(() => getAndSingSubmit(inst))
+            .catch(err => console.log(err))
+
+        })
     }
     )
     .then(res => console.log(res))
@@ -97,17 +106,17 @@ const getAndSingSubmit = (contractInstance) => {
   console.log("Contract instance: ", contractInstance)
   setTimeout(() => {
     fetch(`http://localhost:9080/api/contract/instance/${contractInstance}/status`)
-    .then(response => response.json())
-    .then(contractState => {
-      console.log("Contract state: ", contractState)
-      const cbor = contractState.cicYieldedExportTxs[0].transaction
-      console.log("CBOR: ", cbor)
-      return cbor
-    })
-    .then(cbor => signSubmit(cbor))
-    .catch(err => console.log(err))
+      .then(response => response.json())
+      .then(contractState => {
+        console.log("Contract state: ", contractState)
+        const cbor = contractState.cicYieldedExportTxs[0].transaction
+        console.log("CBOR: ", cbor)
+        return cbor
+      })
+      .then(cbor => signSubmit(cbor))
+      .catch(err => console.log(err))
   },
-  2000
+    3000
   )
 }
 
@@ -141,10 +150,6 @@ const signSubmit = (tx) => {
 
 
 const debg = () => {
-  window.cardano.getUtxos()
-    .then(walletUtxos => console.log("Wallet utxos: ", getTxId(utxoFromHex(walletUtxos[0]))))
-    .catch(err => console.log("Error getting wallet utxos: ", err))
-
   fetch('http://localhost:9080/api/contract/definitions')
     .then(response => response.json())
     .then(data => console.log(data))
