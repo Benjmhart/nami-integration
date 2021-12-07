@@ -29,23 +29,23 @@ const connect = (setState) => {
     .then(addr => {
       const sendingAddress = Address.from_bytes(hexToBytes(addr), "hex").to_bech32()
       console.log(sendingAddress)
-      const data = JSON.stringify(
+      const data = 
         {
           caID: {
             contents: {
               ownAddress: sendingAddress
             },
-            tag: 'Roundtrip'
+            tag: 'LockSpend'
           }
         }
-      )
+      
       console.log("Activation JSON: ", data)
       return fetch("http://localhost:9080/api/contract/activate",
         {
           method: "POST",
           headers: { "Content-type": "application/json" },
           // mode: 'cors',
-          body: data
+          body: JSON.stringify(data)
         })
     })
     .then(response => response.json())
@@ -57,19 +57,15 @@ const connect = (setState) => {
 }
 
 
-const callContract = (inst) => {
+const callLock = (inst) => {
   window.cardano.getCollateral()
     .then(utxos => {
       console.log("Collateral: ", utxos)
       const cUtxo = utxoFromHex(utxos[0])
-      // fixme
-      const hardcodedAddr = "addr_test1qz3apv2ekuctf55fqa5psgaxeg24eeg0sc2wqqe9m259h5w6sk0nka6kca9ar7fwgxfg5khh4tkakp7cntexcat5x74q48ns3a"
-      // fixme
-      const hardcodedAmt = 7000000 
+      const hardcodedAmt = 11000000 
 
       const data = {
         lovelaceAmount: hardcodedAmt,
-        receiverAddress: hardcodedAddr,
         collateralRef: {
             txOutRefId: {
                 getTxId: getTxId(cUtxo)
@@ -78,7 +74,7 @@ const callContract = (inst) => {
         }
       }
       console.log("Endpoint req: ", data)
-      fetch(`http://localhost:9080/api/contract/instance/${inst}/endpoint/call-demo`,
+      fetch(`http://localhost:9080/api/contract/instance/${inst}/endpoint/lock`,
         {
           method: "POST",
           headers: { "Content-type": "application/json" },
@@ -107,7 +103,7 @@ const getAndSingSubmit = (contractInstance) => {
     .then(cbor => signSubmit(cbor))
     .catch(err => console.log(err))
   },
-  2000
+  3000
   )
 }
 
@@ -160,10 +156,10 @@ const App = () => {
       <button onClick={() => connect(setState)}>
         Click to activate Nami Wallet
       </button>
-      <button onClick={() => callContract(state.contractInstance)}>
-        Call endpoint, sign and sumbit
+      <button onClick={() => callLock(state.contractInstance)}>
+        Lock
       </button>
-      <button onClick={() => sign("84a500818258200aae5c2b619ba6ddba8924e3ce2e178e2b788e10ee291781c996f05de4a39f7b000d81825820513aefa8cce5435985cef0795a96cbbd3937fce77ad1ed715ce6df77a15fe27f000182825839005feb72668e5a4effd3b34088aa56e7d558f75afe4798b8364a739673700e4b6993cbc5e612f8770aa531243b3d888a81c0a46de5fa5f6a701a3a3944c382581d60a3d0b159b730b4d28907681823a6ca155ce50f8614e00325daa85bd11a006acfc0021a001e84800e80a0f5f6")}>
+      <button onClick={() => sign("84a500818258201a792b902507dc793e54683beeefac4c6341ab2d3900801e94801b1ab96ff399000d81825820513aefa8cce5435985cef0795a96cbbd3937fce77ad1ed715ce6df77a15fe27f000182825839005feb72668e5a4effd3b34088aa56e7d558f75afe4798b8364a739673700e4b6993cbc5e612f8770aa531243b3d888a81c0a46de5fa5f6a701a38603f0383581d70719ed02924d3a1656481f02af2adbdc229d14778b718e928695638d41a00a7d8c05820ff6191af0d39df3e972d56ecd3610316ff0ce4b1ab65a336a9adfea25c8aa3bc021a001e84800e80a0f5f6")}>
         Sign hardcoded
       </button>
       <button onClick={() => debg(setState)}>
