@@ -116,7 +116,7 @@ const getAndSingSubmit = (contractInstance) => {
       .then(cbor => signSubmit(cbor))
       .catch(err => console.log(err))
   },
-    2000
+    3000
   )
 }
 
