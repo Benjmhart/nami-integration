@@ -117,6 +117,15 @@ const getAndSingSubmit = (contractInstance) => {
   )
 }
 
+const signSubmit = (tx) => {
+  console.log("sign txn")
+  window.cardano.signTx(tx)
+    .then(witness => {
+      console.log("Sign witness: ", witness)
+      submit(tx, witness)
+    })
+    .catch(err => console.log("error: ", err))
+}
 
 const submit = (tx, wits) => {
   const txn = Transaction.from_bytes(Buffer.from(tx, 'hex'))
@@ -135,14 +144,15 @@ const sign = (tx) => {
     .catch(err => console.log("error: ", err))
 }
 
-const signSubmit = (tx) => {
-  console.log("sign txn")
-  window.cardano.signTx(tx)
-    .then(witness => {
-      console.log("Sign witness: ", witness)
-      submit(tx, witness)
-    })
-    .catch(err => console.log("error: ", err))
+const dhc = (txCbor) => {
+  console.log("Before: ", txCbor)
+  const txn = Transaction.from_bytes(Buffer.from(txCbor, 'hex'))
+  console.log("After: ", Buffer.from(txn.to_bytes()).toString('hex'))
+  // console.log("TXN 1: ", txn.body().outputs().get(0))
+  // console.log("TXN 2: ", txn.body().outputs().get(1))
+  // const witnessSet = TransactionWitnessSet.from_bytes(Buffer.from(wits, 'hex'))
+  // const signedTx = Transaction.new(txn.body(), witnessSet)
+  // console.log("Signed: ", Buffer.from(signedTx.to_bytes()).toString('hex'))
 }
 
 
@@ -169,8 +179,8 @@ const App = () => {
       <button onClick={() => callLock(state.contractInstance)}>
         Lock
       </button>
-      <button onClick={() => sign("84a500818258201a792b902507dc793e54683beeefac4c6341ab2d3900801e94801b1ab96ff399000d81825820513aefa8cce5435985cef0795a96cbbd3937fce77ad1ed715ce6df77a15fe27f000182825839005feb72668e5a4effd3b34088aa56e7d558f75afe4798b8364a739673700e4b6993cbc5e612f8770aa531243b3d888a81c0a46de5fa5f6a701a38603f0383581d70719ed02924d3a1656481f02af2adbdc229d14778b718e928695638d41a00a7d8c05820ff6191af0d39df3e972d56ecd3610316ff0ce4b1ab65a336a9adfea25c8aa3bc021a001e84800e80a0f5f6")}>
-        Sign hardcoded
+      <button onClick={() => dhc("84a50081825820522b457e0d077d0f99c664426f4483daf3fc93ddea927bbac685b772921abda0000d81825820513aefa8cce5435985cef0795a96cbbd3937fce77ad1ed715ce6df77a15fe27f000182825839005feb72668e5a4effd3b34088aa56e7d558f75afe4798b8364a739673700e4b6993cbc5e612f8770aa531243b3d888a81c0a46de5fa5f6a701a362babc383581d70719ed02924d3a1656481f02af2adbdc229d14778b718e928695638d41a00b71b005820ff6191af0d39df3e972d56ecd3610316ff0ce4b1ab65a336a9adfea25c8aa3bc021a001e84800e80a10481d8799f46546573742031fff5f6")}>
+        Debug hardcoded CBOR
       </button>
       <button onClick={() => debg(setState)}>
         Debug Definitions
